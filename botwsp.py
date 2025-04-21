@@ -12,6 +12,16 @@ load_dotenv()
 # Crear app Flask
 app = Flask(__name__)
 
+port = int(os.environ.get("PORT", 5000))
+
+@app.route("/")
+def home():
+    return "Hello, World!"
+
+if __name__ == "__main__":
+    # Usar el puerto dinámico obtenido de la variable de entorno
+    app.run(host="0.0.0.0", port=port)
+
 @app.route("/")
 def home():
     return "✅ Bot de WhatsApp activo y esperando mensajes."
@@ -47,7 +57,6 @@ def whatsapp_reply():
 
     return str(twilio_response)
 
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+
     
 
