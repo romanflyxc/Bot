@@ -5,7 +5,6 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
 import os
 
-
 # Cargar variables de entorno desde .env
 load_dotenv()
 
@@ -16,16 +15,7 @@ port = int(os.environ.get("PORT", 5000))
 
 @app.route("/")
 def home():
-    return "Hello, World!"
-
-if __name__ == "__main__":
-    # Usar el puerto dinámico obtenido de la variable de entorno
-    app.run(host="0.0.0.0", port=port)
-
-@app.route("/")
-def home():
     return "✅ Bot de WhatsApp activo y esperando mensajes."
-
 
 # Instanciar modelo LLM desde Groq
 llama = ChatGroq(model="llama3-70b-8192")
@@ -49,7 +39,7 @@ def whatsapp_reply():
 
     # Obtener respuesta del modelo
     response = llama.invoke(messages)
-    bot_reply = response.content
+    bot_reply = response['content']  # Verifica que 'content' sea la clave correcta
 
     # Enviar respuesta por WhatsApp
     twilio_response = MessagingResponse()
@@ -57,6 +47,9 @@ def whatsapp_reply():
 
     return str(twilio_response)
 
+if __name__ == "__main__":
+    # Usar el puerto dinámico obtenido de la variable de entorno
+    app.run(host="0.0.0.0", port=port)
 
     
 
