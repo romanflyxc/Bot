@@ -5,6 +5,10 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
 import os
 
+@app.route("/")
+def home():
+    return "✅ Bot de WhatsApp activo y esperando mensajes."
+
 # Cargar variables de entorno desde .env
 load_dotenv()
 
@@ -43,3 +47,5 @@ def whatsapp_reply():
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
+    
+
