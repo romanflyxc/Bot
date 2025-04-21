@@ -12,7 +12,7 @@ load_dotenv()
 # Crear app Flask
 app = Flask(__name__)
 
-port = int(os.environ.get("PORT", 5000))
+port = int(os.environ.get("PORT", 10000))
 
 @app.route("/")
 def home():
