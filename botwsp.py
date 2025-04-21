@@ -39,7 +39,7 @@ def whatsapp_reply():
 
     # Obtener respuesta del modelo
     response = llama.invoke(messages)
-    bot_reply = response['content']  # Verifica que 'content' sea la clave correcta
+    bot_reply = response.content
 
     # Enviar respuesta por WhatsApp
     twilio_response = MessagingResponse()
