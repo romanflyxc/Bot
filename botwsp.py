@@ -5,15 +5,17 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
 import os
 
-@app.route("/")
-def home():
-    return "✅ Bot de WhatsApp activo y esperando mensajes."
 
 # Cargar variables de entorno desde .env
 load_dotenv()
 
 # Crear app Flask
 app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "✅ Bot de WhatsApp activo y esperando mensajes."
+
 
 # Instanciar modelo LLM desde Groq
 llama = ChatGroq(model="llama3-70b-8192")
