@@ -13,7 +13,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # Puerto que Render asigna dinámicamente
-port = int(os.environ.get("PORT", 5000))
+port = int(os.environ.get("PORT", 10000))
 
 # Simular base de datos en memoria para sesiones de usuario
 user_sessions = {}
