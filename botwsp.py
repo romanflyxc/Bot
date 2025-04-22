@@ -8,6 +8,7 @@ import datetime
 import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+import traceback  # Para capturar detalles completos del error
 
 # Cargar variables de entorno desde .env
 load_dotenv()
@@ -144,6 +145,7 @@ def whatsapp_reply():
 
     except Exception as e:
         print(f"❌ Error en /whatsapp: {e}")
+        traceback.print_exc()  # Esto imprimirá un detalle completo del error
         return "❌ Error interno del bot", 500
 
 if __name__ == "__main__":
