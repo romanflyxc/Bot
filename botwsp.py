@@ -8,6 +8,7 @@ import datetime
 import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+import traceback  # al principio del archivo
 
 # Cargar variables de entorno
 load_dotenv()
@@ -137,8 +138,9 @@ def whatsapp_reply():
         twilio_response.message(f"📅 Vas a reservar la cancha {cancha} para {nombre} el {fecha} a las {hora}. ¿Confirmás?")
         return str(twilio_response)
 
-    except Exception as e:
-        print(f"❌ Error en /whatsapp: {e}")
+     except Exception as e:
+        print("❌ Error en /whatsapp:")
+        traceback.print_exc()  # Esto imprimirá la traza completa del error
         return "❌ Error interno del bot", 500
 
 if __name__ == "__main__":
