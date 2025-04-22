@@ -13,7 +13,7 @@ from googleapiclient.discovery import build
 load_dotenv()
 
 app = Flask(__name__)
-port = int(os.environ.get("PORT", 5000))
+port = int(os.environ.get("PORT", 10000))
 llama = ChatGroq(model="llama3-70b-8192")
 
 # Google Calendar setup
