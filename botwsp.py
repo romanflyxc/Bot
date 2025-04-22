@@ -138,7 +138,7 @@ def whatsapp_reply():
         twilio_response.message(f"📅 Vas a reservar la cancha {cancha} para {nombre} el {fecha} a las {hora}. ¿Confirmás?")
         return str(twilio_response)
 
-     except Exception as e:
+    except Exception as e:
         print("❌ Error en /whatsapp:")
         traceback.print_exc()  # Esto imprimirá la traza completa del error
         return "❌ Error interno del bot", 500
