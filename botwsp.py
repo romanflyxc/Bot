@@ -13,7 +13,7 @@ from googleapiclient.discovery import build
 load_dotenv()
 
 app = Flask(__name__)
-port = int(os.environ.get("PORT", 10000))
+port = int(os.environ.get("PORT", 10000))  # Asegurarse de usar el puerto correcto en Render
 llama = ChatGroq(model="llama3-70b-8192")
 
 # Google Calendar setup
@@ -54,8 +54,11 @@ def home():
 @app.route("/whatsapp", methods=['POST'])
 def whatsapp_reply():
     try:
+        print("Solicitud recibida")  # Esto ayudará a confirmar que la solicitud llega
         user_msg = request.form.get('Body').strip().lower()
         user_number = request.form.get('From')
+
+        print(f"Mensaje recibido: {user_msg}, Número: {user_number}")  # Verifica los datos recibidos
 
         twilio_response = MessagingResponse()
 
@@ -144,4 +147,5 @@ def whatsapp_reply():
         return "❌ Error interno del bot", 500
 
 if __name__ == "__main__":
+    print(f"Bot corriendo en puerto {port}")  # Verifica que el bot esté corriendo
     app.run(host="0.0.0.0", port=port)
