@@ -56,7 +56,7 @@ def whatsapp_reply():
             twilio_response.message("❌ Tu reserva ha sido cancelada. ¿Hay algo más en lo que te pueda ayudar?")
             return str(twilio_response)
 
-        # Continuar con la lógica de reserva
+        # Lógica para manejar la reserva de cancha
         if user_number in reservas_pendientes:
             if any(x in user_msg for x in ["sí", "confirmo", "confirmar", "dale", "ok"]):
                 datos = reservas_pendientes.pop(user_number)
@@ -76,15 +76,14 @@ def whatsapp_reply():
                 twilio_response.message("❌ Reserva cancelada. Si quieres intentarlo de nuevo, decímelo.")
                 return str(twilio_response)
 
-        # Lógica para extraer información de la reserva
+        # Lógica para extraer la información de la reserva, más flexible
         extraction_prompt = f"""
         Extrae del siguiente mensaje estos datos:
         - Nombre
         - Fecha (YYYY-MM-DD)
         - Hora (HH:MM en 24hs)
         - Número de cancha (1 a 3)
-        Responde en JSON como este ejemplo:
-        {{"nombre": "Juan", "fecha": "2025-04-23", "hora": "18:00", "cancha": 2}}
+        Si la información no está completamente clara, responde con un mensaje pidiendo más detalles.
         Mensaje: "{user_msg}"
         """
 
@@ -101,7 +100,7 @@ def whatsapp_reply():
         # Verificar que todos los campos necesarios estén presentes
         required_fields = ["nombre", "fecha", "hora", "cancha"]
         if not all(field in extracted for field in required_fields):
-            twilio_response.message("❌ Faltan algunos datos importantes. Por favor, asegúrate de incluir el nombre, fecha, hora y cancha.")
+            twilio_response.message("❌ Faltan algunos datos importantes. ¿Podrías decirme tu nombre, la fecha y la hora, y qué cancha te gustaría reservar?")
             return str(twilio_response)
 
         nombre = extracted["nombre"]
