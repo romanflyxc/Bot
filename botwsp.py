@@ -18,11 +18,12 @@ llama = ChatGroq(model="llama3-70b-8192")
 
 # Google Calendar setup
 SCOPES = ['https://www.googleapis.com/auth/calendar']
-SERVICE_ACCOUNT_FILE = 'credenciales_google.json'
+SERVICE_ACCOUNT_FILE = 'credenciales_google.json'  # Asegúrate de tener el archivo en la raíz de tu proyecto
 credentials = service_account.Credentials.from_service_account_file(
     SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-calendar_service = build('calendar', 'v3', credentials=credentials)
-CALENDAR_ID = os.environ.get("CALENDAR_ID")
+
+# Usamos el calendario "botgonza" para las reservas
+CALENDAR_ID = "botgonza@group.calendar.google.com"  # ID de tu calendario
 
 # Estado temporal
 reservas_pendientes = {}
