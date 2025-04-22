@@ -8,13 +8,12 @@ import datetime
 import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-import traceback  # Para capturar detalles completos del error
 
 # Cargar variables de entorno desde .env
 load_dotenv()
 
 app = Flask(__name__)
-port = int(os.environ.get("PORT", 10000))  # Asegurarse de usar el puerto correcto en Render
+port = int(os.environ.get("PORT", 10000))
 llama = ChatGroq(model="llama3-70b-8192")
 
 # Google Calendar setup
@@ -24,7 +23,6 @@ credentials = service_account.Credentials.from_service_account_info(
     service_account_info, scopes=SCOPES
 )
 calendar_service = build('calendar', 'v3', credentials=credentials)
-# Usamos el calendario "botgonza" para las reservas
 CALENDAR_ID = "botgonza@group.calendar.google.com"  # ID de tu calendario
 
 # Estado temporal
@@ -55,11 +53,8 @@ def home():
 @app.route("/whatsapp", methods=['POST'])
 def whatsapp_reply():
     try:
-        print("Solicitud recibida")  # Esto ayudará a confirmar que la solicitud llega
         user_msg = request.form.get('Body').strip().lower()
         user_number = request.form.get('From')
-
-        print(f"Mensaje recibido: {user_msg}, Número: {user_number}")  # Verifica los datos recibidos
 
         twilio_response = MessagingResponse()
 
@@ -93,7 +88,14 @@ def whatsapp_reply():
         """
 
         extraction_response = llama.invoke([HumanMessage(content=extraction_prompt)])
-        extracted = json.loads(extraction_response.content)
+        print("🧠 Respuesta de LLM:", extraction_response.content)
+
+        try:
+            extracted = json.loads(extraction_response.content)
+        except json.JSONDecodeError:
+            print("❌ No se pudo parsear como JSON:", extraction_response.content)
+            twilio_response.message("❌ No entendí los datos que enviaste. Por favor, escribí algo como: 'Reservar cancha 2 para Juan el 23 de abril a las 18:00'")
+            return str(twilio_response)
 
         nombre = extracted["nombre"]
         fecha = extracted["fecha"]
@@ -128,7 +130,6 @@ def whatsapp_reply():
                 )
             return str(twilio_response)
 
-        # Guardar para confirmar
         reservas_pendientes[user_number] = {
             "nombre": nombre,
             "fecha": fecha,
@@ -145,9 +146,7 @@ def whatsapp_reply():
 
     except Exception as e:
         print(f"❌ Error en /whatsapp: {e}")
-        traceback.print_exc()  # Esto imprimirá un detalle completo del error
         return "❌ Error interno del bot", 500
 
 if __name__ == "__main__":
-    print(f"Bot corriendo en puerto {port}")  # Verifica que el bot esté corriendo
     app.run(host="0.0.0.0", port=port)
