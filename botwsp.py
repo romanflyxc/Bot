@@ -9,25 +9,22 @@ import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-# Cargar variables de entorno desde .env
+# Cargar variables de entorno
 load_dotenv()
 
 app = Flask(__name__)
 port = int(os.environ.get("PORT", 10000))
-
 llama = ChatGroq(model="llama3-70b-8192")
 
 # Google Calendar setup
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 service_account_info = json.loads(os.environ['GOOGLE_CREDENTIALS_JSON'])
-credentials = service_account.Credentials.from_service_account_info(
-    service_account_info, scopes=SCOPES
-)
+credentials = service_account.Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
 calendar_service = build('calendar', 'v3', credentials=credentials)
 CALENDAR_ID = "botgonza@group.calendar.google.com"
 
-# Estado temporal de reservas pendientes
-reservas_pendientes = {}
+# Estados temporales por usuario
+estado_usuario = {}
 
 def verificar_disponibilidad(start_datetime, end_datetime, calendar_id=CALENDAR_ID):
     events = calendar_service.events().list(
@@ -49,7 +46,7 @@ def crear_evento(nombre, cancha, start_datetime, end_datetime):
 
 @app.route("/")
 def home():
-    return "✅ Bot activo"
+    return "✅ Bot de WhatsApp activo"
 
 @app.route("/whatsapp", methods=['POST'])
 def whatsapp_reply():
@@ -58,106 +55,78 @@ def whatsapp_reply():
         user_number = request.form.get('From')
         twilio_response = MessagingResponse()
 
-        # Responder saludos simples
-        if user_msg in ["hola", "buenas", "holaa", "hello", "buenos días", "buenas tardes", "buenas noches"]:
+        # Saludos
+        if user_msg in ["hola", "buenas", "holaa", "hello"]:
             twilio_response.message("¡Hola! Bienvenido a Canchas de Futbol Litoral. ¿En qué puedo ayudarte hoy?")
             return str(twilio_response)
 
-        # Paso 2: Confirmación
-        if user_number in reservas_pendientes:
-            if any(x in user_msg for x in ["sí", "confirmo", "confirmar", "dale", "ok"]):
-                datos = reservas_pendientes.pop(user_number)
+        # Confirmación de reserva
+        if user_number in estado_usuario and estado_usuario[user_number].get("estado") == "esperando_confirmacion":
+            if any(x in user_msg for x in ["sí", "confirmo", "dale", "ok"]):
+                datos = estado_usuario.pop(user_number)
                 crear_evento(datos["nombre"], datos["cancha"], datos["start"], datos["end"])
-                twilio_response.message(f"✅ ¡Listo! La cancha {datos['cancha']} quedó reservada para {datos['nombre']} el {datos['fecha']} a las {datos['hora']}.")
-                return str(twilio_response)
+                twilio_response.message(f"✅ ¡Listo! Cancha {datos['cancha']} reservada para {datos['nombre']} el {datos['fecha']} a las {datos['hora']}.")
             else:
-                reservas_pendientes.pop(user_number)
+                estado_usuario.pop(user_number)
                 twilio_response.message("❌ Reserva cancelada. Si querés intentarlo de nuevo, decímelo.")
-                return str(twilio_response)
+            return str(twilio_response)
 
-        # Paso 1: Extracción de datos
+        # Obtener o inicializar estado del usuario
+        datos = estado_usuario.get(user_number, {})
+
+        # Intentar extraer info del mensaje
         extraction_prompt = f"""
-        Extrae del siguiente mensaje estos datos:
+        Extrae si podés estos datos del mensaje:
         - Nombre
         - Fecha (YYYY-MM-DD)
-        - Hora (HH:MM en 24hs)
+        - Hora (HH:MM)
         - Número de cancha (1 a 3)
-        Responde en JSON como este ejemplo:
+
+        Respondé solo con el JSON como este ejemplo:
         {{
             "nombre": "Juan",
             "fecha": "2025-04-23",
             "hora": "18:00",
             "cancha": 2
         }}
+
         Mensaje: "{user_msg}"
         """
 
         extraction_response = llama.invoke([HumanMessage(content=extraction_prompt)])
-        print("🧠 Respuesta de LLM:", extraction_response.content)
-
         try:
-            extracted = json.loads(extraction_response.content)
-        except json.JSONDecodeError:
-            print("❌ No se pudo parsear como JSON:", extraction_response.content)
+            extra = json.loads(extraction_response.content)
+            datos.update({k: v for k, v in extra.items() if v})
+        except:
+            pass
 
-            # Si detectamos intención de reservar pero falta info
-            if "reservar" in user_msg or "cancha" in user_msg:
-                twilio_response.message("📋 Para hacer la reserva necesito: tu nombre, fecha, hora y número de cancha. ¿Podés enviármelo?")
-            else:
-                twilio_response.message("❌ No entendí los datos que enviaste. Por favor, escribí algo como: 'Reservar cancha 2 para Juan el 23 de abril a las 18:00'")
+        estado_usuario[user_number] = datos
+
+        # Ver qué datos faltan
+        campos_faltantes = [campo for campo in ["nombre", "fecha", "hora", "cancha"] if campo not in datos]
+
+        if campos_faltantes:
+            texto = "📋 Para hacer la reserva necesito: "
+            texto += ", ".join(campos_faltantes) + ". ¿Podés enviármelo?"
+            twilio_response.message(texto)
             return str(twilio_response)
 
-        # Verificar campos obligatorios
-        required_fields = ["nombre", "fecha", "hora", "cancha"]
-        if not all(field in extracted for field in required_fields):
-            twilio_response.message("📋 Para continuar necesito que me digas tu nombre, la fecha, hora y número de cancha.")
-            return str(twilio_response)
-
-        nombre = extracted["nombre"]
-        fecha = extracted["fecha"]
-        hora = extracted["hora"]
-        cancha = extracted["cancha"]
-
-        start_dt = datetime.datetime.strptime(f"{fecha} {hora}", "%Y-%m-%d %H:%M")
+        # Convertir fecha y hora
+        start_dt = datetime.datetime.strptime(f"{datos['fecha']} {datos['hora']}", "%Y-%m-%d %H:%M")
         end_dt = start_dt + datetime.timedelta(hours=1)
 
         disponible = verificar_disponibilidad(start_dt, end_dt)
 
         if not disponible:
-            canchas_disponibles = []
-            for nro in [1, 2, 3]:
-                if nro == cancha:
-                    continue
-                if verificar_disponibilidad(start_dt, end_dt):
-                    desc = f"Cancha {nro}"
-                    if nro == 2:
-                        desc += " (la del medio)"
-                    canchas_disponibles.append(desc)
-
-            if canchas_disponibles:
-                disponibles_str = ", ".join(canchas_disponibles)
-                twilio_response.message(
-                    f"⛔ La cancha {cancha} no está disponible el {fecha} a las {hora}. "
-                    f"Pero las siguientes están libres: {disponibles_str}. ¿Querés reservar una de esas?"
-                )
-            else:
-                twilio_response.message(
-                    f"⛔ Ninguna cancha está disponible el {fecha} a las {hora}. ¿Querés probar otro horario?"
-                )
+            twilio_response.message(f"⛔ La cancha {datos['cancha']} no está disponible el {datos['fecha']} a las {datos['hora']}. ¿Querés probar otro horario o cancha?")
             return str(twilio_response)
 
-        reservas_pendientes[user_number] = {
-            "nombre": nombre,
-            "fecha": fecha,
-            "hora": hora,
-            "cancha": cancha,
-            "start": start_dt,
-            "end": end_dt
-        }
+        datos["start"] = start_dt
+        datos["end"] = end_dt
+        datos["estado"] = "esperando_confirmacion"
+        estado_usuario[user_number] = datos
 
-        twilio_response.message(
-            f"📅 Vas a reservar la cancha {cancha} para {nombre} el {fecha} a las {hora}. ¿Confirmás? (respondé 'sí' para confirmar)"
-        )
+        twilio_response.message(f"📅 Vas a reservar la cancha {datos['cancha']} para {datos['nombre']} el {datos['fecha']} a las {datos['hora']}. ¿Confirmás?")
         return str(twilio_response)
 
     except Exception as e:
