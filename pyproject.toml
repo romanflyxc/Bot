@@ -12,8 +12,12 @@ langchain = "^0.2.10"
 langchain-openai = "^0.1.17"
 python-dotenv = "^1.0.1"
 langchain-groq = "^0.1.6"
+google-auth = "^2.0.0"
+google-api-python-client = "^2.0.0"
 
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+
