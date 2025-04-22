@@ -1,25 +1,50 @@
 from flask import Flask, request
+from twilio.twiml.messaging_response import MessagingResponse
+from langchain_groq import ChatGroq
+from langchain_core.messages import SystemMessage, HumanMessage
 from datetime import datetime
+from dotenv import load_dotenv
 import os
-import json
 
+# Cargar variables de entorno desde .env
+load_dotenv()
+
+# Crear app Flask
 app = Flask(__name__)
 
-# Memoria temporal para guardar el estado de cada usuario
+# Puerto que Render asigna dinámicamente
+port = int(os.environ.get("PORT", 5000))
+
+# Simular base de datos en memoria para sesiones de usuario
 user_sessions = {}
 
-def guardar_en_calendario(nombre, fecha, hora, cancha):
-    # Esta función debería agregar el evento a Google Calendar
-    print(f"📅 Evento: {nombre}, {fecha}, {hora}, Cancha {cancha}")
-    # Aquí iría la lógica real usando Google Calendar API
-    return True
+# Instanciar modelo LLM desde Groq
+llama = ChatGroq(model="llama3-70b-8192")
 
-@app.route('/whatsapp', methods=['POST'])
+# Función ficticia para verificar disponibilidad en Google Calendar
+def verificar_disponibilidad(fecha, hora):
+    # Aquí deberías integrar la API de Google Calendar para verificar la disponibilidad
+    # Por ejemplo, hacer una consulta para ver si ya hay un evento en esa fecha y hora.
+    return True  # Asumimos que siempre está disponible
+
+# Función ficticia para agregar una reserva a Google Calendar
+def guardar_en_calendario(nombre, fecha, hora, cancha):
+    # Aquí debes integrar la API de Google Calendar para guardar el evento
+    print(f"Guardando en Google Calendar: {nombre} reserva la cancha {cancha} el {fecha} a las {hora}")
+
+@app.route("/")
+def home():
+    return "✅ Bot de WhatsApp activo y esperando mensajes."
+
+@app.route("/whatsapp", methods=['POST'])
 def whatsapp_reply():
     try:
+        # Obtener mensaje del usuario desde WhatsApp
         incoming_msg = request.values.get('Body', '').strip().lower()
         from_number = request.values.get('From', '')
+        print(f"📩 Mensaje recibido de {from_number}: {incoming_msg}")
 
+        # Si el usuario no tiene una sesión, inicializarla
         session = user_sessions.get(from_number, {
             'state': 'inicio',
             'nombre': None,
@@ -63,8 +88,13 @@ def whatsapp_reply():
         elif session['state'] == 'esperando_cancha':
             if incoming_msg in ['1', '2', '3']:
                 session['cancha'] = incoming_msg
-                respuesta = f"✅ Te reservo la cancha {session['cancha']} para el {session['fecha']} a las {session['hora']} a nombre de {session['nombre']}. ¿Confirmás?"
-                session['state'] = 'esperando_confirmacion'
+                # Verificar si la cancha está disponible
+                disponibilidad = verificar_disponibilidad(session['fecha'], session['hora'])
+                if disponibilidad:
+                    respuesta = f"✅ Te reservo la cancha {session['cancha']} para el {session['fecha']} a las {session['hora']} a nombre de {session['nombre']}. ¿Confirmás?"
+                    session['state'] = 'esperando_confirmacion'
+                else:
+                    respuesta = "❌ Esa fecha y hora ya están ocupadas. ¿Te gustaría elegir otro horario?"
             else:
                 respuesta = "❌ Por favor escribí 1, 2 o 3 para elegir la cancha."
 
@@ -77,17 +107,18 @@ def whatsapp_reply():
                 respuesta = "❌ Reserva cancelada. Si querés intentarlo de nuevo, escribí *reservar*."
                 session = {'state': 'inicio', 'nombre': None, 'fecha': None, 'hora': None, 'cancha': None}
 
+        # Guardar la sesión del usuario
         user_sessions[from_number] = session
 
-        return respuesta, 200
+        # Enviar la respuesta por WhatsApp
+        twilio_response = MessagingResponse()
+        twilio_response.message(respuesta)
+
+        return str(twilio_response), 200
 
     except Exception as e:
-        print("Error en whatsapp_reply:", str(e))
-        return "Ocurrió un error en el bot.", 500
+        print(f"❌ Error en /whatsapp: {e}")
+        return "❌ Error interno del bot", 500
 
-@app.route('/')
-def index():
-    return "Bot de WhatsApp funcionando."
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=port)
